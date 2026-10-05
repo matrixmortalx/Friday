@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Friday - Görsel İşleme</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#101828;--mut:#667085;--acc:#e5484d;--acc2:#ff8a3d;--line:#e4e7ec;box-sizing:border-box}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#151b30;--ink:#eef1f8;--mut:#98a2b3;--line:#262e48}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font:16px/1.5 system-ui,sans-serif}
+body{background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+header{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+h1{margin:0;font-size:24px}
+.subtitle{font-size:12px;opacity:0.9;margin-top:4px}
+.tabs{display:flex;gap:8px;padding:16px;border-bottom:1px solid var(--line);background:var(--card)}
+.tab{padding:8px 16px;border:1px solid var(--line);border-radius:8px;background:transparent;cursor:pointer;color:var(--ink);font-size:14px;transition:all 0.3s}
+.tab.active{background:var(--acc);color:#fff;border-color:var(--acc)}
+.content{flex:1;overflow-y:auto;padding:16px}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.container{display:flex;gap:16px;flex-wrap:wrap}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;flex:1;min-width:280px}
+.panel h2{margin:0 0 12px 0;font-size:14px;color:var(--mut)}
+.upload-area{border:2px dashed var(--line);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.3s}
+.upload-area:hover{border-color:var(--acc);background:rgba(229,72,77,0.05)}
+.upload-area input{display:none}
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:12px 0}
+.preview-item{position:relative;border-radius:8px;overflow:hidden;background:#f0f0f0}
+.preview-item img{width:100%;height:150px;object-fit:cover}
+.preview-item .delete{position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);color:#fff;border:0;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:12px}
+.model-select{margin:12px 0}
+label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+select,input[type="text"]{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;margin-top:12px;width:100%}
+button:disabled{opacity:0.5;cursor:not-allowed}
+.status{font-size:12px;color:var(--mut);padding:8px;background:rgba(0,0,0,0.02);border-radius:6px;margin-top:8px}
+.loading{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result-section{margin-top:16px;padding:12px;background:rgba(0,0,0,0.02);border-radius:8px}
+.result-img{width:100%;border-radius:8px;margin-top:8px;max-height:400px;object-fit:contain}
+.slider-container{display:flex;align-items:center;gap:8px;margin:8px 0}
+input[type="range"]{flex:1}
+input[type="range"]::-webkit-slider-thumb{width:16px;height:16px;background:var(--acc);border-radius:50%;cursor:pointer}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;background:var(--acc);border-radius:50%;cursor:pointer}
+.value-display{min-width:40px;text-align:right;font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎨 Friday Görsel İşleme Studio</h1>
+  <p class="subtitle">AI modelleri ile görsel oluştur, düzenle ve birleştir</p>
+</header>
+
+<div class="tabs">
+  <button class="tab active" data-tab="generate">🖼️ Üret</button>
+  <button class="tab" data-tab="enhance">✨ İyileştir</button>
+  <button class="tab" data-tab="merge">🔀 Birleştir</button>
+  <button class="tab" data-tab="edit">🎯 Düzenle</button>
+  <button class="tab" data-tab="batch">📦 Toplu İşle</button>
+</div>
+
+<div class="content">
+  <!-- Görsel Üretme -->
+  <div class="tab-content active" id="generate">
+    <div class="container">
+      <div class="panel">
+        <h2>Görsel Üretme</h2>
+        
+        <div class="model-select">
+          <label>Üretim Modeli</label>
+          <select id="genModel">
+            <option value="flux">Flux Pro (Hızlı, Kaliteli)</option>
+            <option value="dall-e">DALL-E 3</option>
+            <option value="stable-diffusion">Stable Diffusion XL</option>
+            <option value="midjourney">Midjourney Style</option>
+            <option value="pollinations">Pollinations AI</option>
+          </select>
+        </div>
+
+        <label>Görsel Açıklaması (Prompt)</label>
+        <textarea id="genPrompt" rows="4" placeholder="Örn: Cyberpunk şehrinde futuristic robot, neon ışıklar, 4K, high quality..."></textarea>
+
+        <div class="model-select">
+          <label>Stil</label>
+          <select id="genStyle">
+            <option value="realistic">Gerçekçi</option>
+            <option value="anime">Anime</option>
+            <option value="oil-painting">Yağlı Boya</option>
+            <option value="cartoon">Karikatür</option>
+            <option value="cyberpunk">Cyberpunk</option>
+            <option value="steampunk">Steampunk</option>
+            <option value="fantasy">Fantezi</option>
+            <option value="sci-fi">Sci-Fi</option>
+          </select>
+        </div>
+
+        <div class="slider-container">
+          <label>Kalite</label>
+          <input type="range" id="genQuality" min="1" max="5" value="3">
+          <span class="value-display" id="qualityVal">3</span>
+        </div>
+
+        <button id="genBtn">🚀 Görsel Üret</button>
+        <div class="status" id="genStatus">Hazır</div>
+
+        <div class="result-section" id="genResult" style="display:none">
+          <h3>Sonuç</h3>
+          <img id="genResultImg" class="result-img">
+          <button id="genDownload">⬇️ İndir</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Üretilen Görseller</h2>
+        <div class="preview-grid" id="genPreview"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Görsel İyileştirme -->
+  <div class="tab-content" id="enhance">
+    <div class="container">
+      <div class="panel">
+        <h2>Görsel Yükle</h2>
+        <div class="upload-area" id="enhanceUpload">
+          <p>📸 Görsel yükle</p>
+          <input type="file" id="enhanceInput" accept="image/*">
+        </div>
+        <img id="enhanceImg" style="display:none;max-width:100%;border-radius:8px;margin-top:12px">
+        <div class="status" id="enhanceImgStatus">Görsel seçilmedi</div>
+      </div>
+
+      <div class="panel">
+        <h2>İyileştirme Seçenekleri</h2>
+
+        <div class="model-select">
+          <label>İyileştirme Türü</label>
+          <select id="enhanceType">
+            <option value="upscale">Çözünürlük Artırma (2x, 4x)</option>
+            <option value="denoise">Gürültü Temizleme</option>
+            <option value="colorize">Renklendir (B&B)</option>
+            <option value="restore">Onarım & Yenileme</option>
+            <option value="blur-removal">Bulanıklık Giderme</option>
+          </select>
+        </div>
+
+        <div class="slider-container">
+          <label>Ölçek</label>
+          <input type="range" id="enhanceScale" min="2" max="4" step="1" value="2">
+          <span class="value-display" id="scaleVal">2x</span>
+        </div>
+
+        <div class="slider-container">
+          <label>Güç</label>
+          <input type="range" id="enhanceStrength" min="1" max="10" value="5">
+          <span class="value-display" id="strengthVal">5</span>
+        </div>
+
+        <button id="enhanceBtn" disabled>✨ İyileştir</button>
+        <div class="status" id="enhanceStatus">Hazır</div>
+
+        <div class="result-section" id="enhanceResult" style="display:none">
+          <h3>İyileştirilmiş Görsel</h3>
+          <img id="enhanceResultImg" class="result-img">
+          <button id="enhanceDownload">⬇️ İndir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Görsel Birleştirme -->
+  <div class="tab-content" id="merge">
+    <div class="container">
+      <div class="panel">
+        <h2>Görsel 1</h2>
+        <div class="upload-area" id="merge1Upload">
+          <p>📸 Yükle</p>
+          <input type="file" id="merge1Input" accept="image/*">
+        </div>
+        <img id="merge1Img" style="display:none;max-width:100%;border-radius:8px;margin-top:12px">
+      </div>
+
+      <div class="panel">
+        <h2>Görsel 2</h2>
+        <div class="upload-area" id="merge2Upload">
+          <p>📸 Yükle</p>
+          <input type="file" id="merge2Input" accept="image/*">
+        </div>
+        <img id="merge2Img" style="display:none;max-width:100%;border-radius:8px;margin-top:12px">
+      </div>
+
+      <div class="panel">
+        <h2>Birleştirme Ayarları</h2>
+
+        <div class="model-select">
+          <label>Birleştirme Yöntemi</label>
+          <select id="mergeMethod">
+            <option value="blend">Karışımı (Opacity Blend)</option>
+            <option value="mosaic">Mozaik (Yan Yana)</option>
+            <option value="collage">Kolaj</option>
+            <option value="overlap">Üst Üste (Masking)</option>
+            <option value="gradient">Gradient Geçiş</option>
+            <option value="ai-blend">AI Akıllı Birleştirme</option>
+          </select>
+        </div>
+
+        <div class="slider-container">
+          <label>Ağırlık (1. Görsel)</label>
+          <input type="range" id="mergeBlend" min="0" max="100" value="50">
+          <span class="value-display" id="blendVal">50%</span>
+        </div>
+
+        <button id="mergeBtn" disabled>🔀 Birleştir</button>
+        <div class="status" id="mergeStatus">Hazır</div>
+
+        <div class="result-section" id="mergeResult" style="display:none">
+          <h3>Birleştirilmiş Görsel</h3>
+          <img id="mergeResultImg" class="result-img">
+          <button id="mergeDownload">⬇️ İndir</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Görsel Düzenleme -->
+  <div class="tab-content" id="edit">
+    <div class="container">
+      <div class="panel">
+        <h2>Görsel Yükle</h2>
+        <div class="upload-area" id="editUpload">
+          <p>📸 Görsel yükle</p>
+          <input type="file" id="editInput" accept="image/*">
+        </div>
+        <canvas id="editCanvas" style="display:none;max-width:100%;border-radius:8px;margin-top:12px"></canvas>
+      </div>
+
+      <div class="panel">
+        <h2>Düzenleme Araçları</h2>
+
+        <div class="slider-container">
+          <label>Parlaklık</label>
+          <input type="range" id="editBrightness" min="-100" max="100" value="0">
+          <span class="value-display" id="brightnessVal">0</span>
+        </div>
+
+        <div class="slider-container">
+          <label>Kontrast</label>
+          <input type="range" id="editContrast" min="-100" max="100" value="0">
+          <span class="value-display" id="contrastVal">0</span>
+        </div>
+
+        <div class="slider-container">
+          <label>Doygunluk</label>
+          <input type="range" id="editSaturation" min="-100" max="100" value="0">
+          <span class="value-display" id="saturationVal">0</span>
+        </div>
+
+        <div class="slider-container">
+          <label>Sıcaklık (Ton)</label>
+          <input type="range" id="editTemperature" min="-50" max="50" value="0">
+          <span class="value-display" id="temperatureVal">0</span>
+        </div>
+
+        <div class="slider-container">
+          <label>Koyu Tonlar</label>
+          <input type="range" id="editShadows" min="-100" max="100" value="0">
+          <span class="value-display" id="shadowsVal">0</span>
+        </div>
+
+        <div class="slider-container">
+          <label>Açık Tonlar</label>
+          <input type="range" id="editHighlights" min="-100" max="100" value="0">
+          <span class="value-display" id="highlightsVal">0</span>
+        </div>
+
+        <button id="editReset">↺ Sıfırla</button>
+        <button id="editDownload" disabled>⬇️ İndir</button>
+        <div class="status" id="editStatus">Görsel seçilmedi</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toplu İşleme -->
+  <div class="tab-content" id="batch">
+    <div class="container">
+      <div class="panel">
+        <h2>Toplu Görsel Yükle</h2>
+        <div class="upload-area" id="batchUpload">
+          <p>📁 Birden fazla görsel yükle</p>
+          <input type="file" id="batchInput" accept="image/*" multiple>
+        </div>
+        <div class="preview-grid" id="batchPreview"></div>
+        <div class="status" id="batchImgStatus">0 görsel yüklendi</div>
+      </div>
+
+      <div class="panel">
+        <h2>Toplu İşlem</h2>
+
+        <div class="model-select">
+          <label>İşlem Türü</label>
+          <select id="batchOperation">
+            <option value="upscale">Tümünü 2x Büyüt</option>
+            <option value="enhance">Tümünü İyileştir</option>
+            <option value="denoise">Tümünden Gürültü Kaldır</option>
+            <option value="watermark">Filigran Ekle</option>
+            <option value="resize">Yeniden Boyutlandır</option>
+            <option value="convert">Format Dönüştür</option>
+          </select>
+        </div>
+
+        <label>Çıktı Formatı</label>
+        <select id="batchFormat">
+          <option value="png">PNG (Kayıpsız)</option>
+          <option value="jpg">JPG (Kaliteli)</option>
+          <option value="webp">WebP (Küçük)</option>
+          <option value="avif">AVIF (Yeni)</option>
+        </select>
+
+        <button id="batchProcess" disabled>⚙️ İşlemeyi Başlat</button>
+        <div class="status" id="batchStatus">Hazır</div>
+
+        <div id="batchProgressContainer" style="display:none;margin-top:16px">
+          <label>İlerleme</label>
+          <div style="background:#e4e7ec;border-radius:6px;height:6px;overflow:hidden">
+            <div id="batchProgress" style="background:var(--acc);height:100%;width:0%;transition:width 0.3s"></div>
+          </div>
+          <p id="batchProgressText" style="margin:8px 0;font-size:12px;color:var(--mut)">0 / 0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sharp-cpu@0.33.0"></script>
+<script>
+
+const GENERATE_API = 'https://api.pollinations.ai/v1/generate';
+const UPSCALE_API = 'https://api.upscayl.org/api/upscale';
+
+let currentImages = {
+  generated: [],
+  enhanced: null,
+  merge: [null, null],
+  edit: null
+};
+
+// === TAB NAVIGATION ===
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const tabName = tab.getAttribute('data-tab');
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.getElementById(tabName).classList.add('active');
+    tab.classList.add('active');
+  });
+});
+
+// === SLIDER VALUE DISPLAY ===
+document.getElementById('genQuality').addEventListener('input', (e) => {
+  document.getElementById('qualityVal').textContent = e.target.value;
+});
+document.getElementById('enhanceScale').addEventListener('input', (e) => {
+  document.getElementById('scaleVal').textContent = e.target.value + 'x';
+});
+document.getElementById('enhanceStrength').addEventListener('input', (e) => {
+  document.getElementById('strengthVal').textContent = e.target.value;
+});
+document.getElementById('mergeBlend').addEventListener('input', (e) => {
+  document.getElementById('blendVal').textContent = e.target.value + '%';
+});
+
+document.getElementById('editBrightness').addEventListener('input', (e) => {
+  document.getElementById('brightnessVal').textContent = e.target.value;
+  applyEditFilters();
+});
+document.getElementById('editContrast').addEventListener('input', (e) => {
+  document.getElementById('contrastVal').textContent = e.target.value;
+  applyEditFilters();
+});
+document.getElementById('editSaturation').addEventListener('input', (e) => {
+  document.getElementById('saturationVal').textContent = e.target.value;
+  applyEditFilters();
+});
+document.getElementById('editTemperature').addEventListener('input', (e) => {
+  document.getElementById('temperatureVal').textContent = e.target.value;
+  applyEditFilters();
+});
+document.getElementById('editShadows').addEventListener('input', (e) => {
+  document.getElementById('shadowsVal').textContent = e.target.value;
+  applyEditFilters();
+});
+document.getElementById('editHighlights').addEventListener('input', (e) => {
+  document.getElementById('highlightsVal').textContent = e.target.value;
+  applyEditFilters();
+});
+
+// === GÖRSEL ÜRETME ===
+document.getElementById('genBtn').addEventListener('click', async () => {
+  const prompt = document.getElementById('genPrompt').value;
+  const style = document.getElementById('genStyle').value;
+  const model = document.getElementById('genModel').value;
+
+  if (!prompt) {
+    alert('Lütfen bir açıklama yazın');
+    return;
+  }
+
+  const fullPrompt = `${prompt}, style: ${style}, high quality, 4k`;
+  const status = document.getElementById('genStatus');
+  status.textContent = '⏳ Görsel üretiliyor...';
+  document.getElementById('genBtn').disabled = true;
+
+  try {
+    const response = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(fullPrompt)}`);
+    if (!response.ok) throw new Error('API Hatası');
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    const img = document.getElementById('genResultImg');
+    img.src = url;
+    document.getElementById('genResult').style.display = 'block';
+
+    currentImages.generated.push(url);
+    updateGeneratedPreview();
+
+    status.textContent = '✅ Tamamlandı!';
+
+    document.getElementById('genDownload').onclick = () => {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'friday-generated.png';
+      link.click();
+    };
+
+  } catch (err) {
+    status.textContent = `❌ Hata: ${err.message}`;
+  } finally {
+    document.getElementById('genBtn').disabled = false;
+  }
+});
+
+function updateGeneratedPreview() {
+  const preview = document.getElementById('genPreview');
+  preview.innerHTML = '';
+  currentImages.generated.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'preview-item';
+    item.innerHTML = `
+      <img src="${url}" alt="Generated">
+      <button class="delete" onclick="deleteGenerated(${idx})">Sil</button>
+    `;
+    preview.appendChild(item);
+  });
+}
+
+function deleteGenerated(idx) {
+  currentImages.generated.splice(idx, 1);
+  updateGeneratedPreview();
+}
+
+// === GÖRSEL İYİLEŞTİRME ===
+document.getElementById('enhanceUpload').addEventListener('click', () => {
+  document.getElementById('enhanceInput').click();
+});
+
+document.getElementById('enhanceInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    document.getElementById('enhanceImg').src = event.target.result;
+    document.getElementById('enhanceImg').style.display = 'block';
+    document.getElementById('enhanceImgStatus').textContent = '✅ Görsel hazır';
+    document.getElementById('enhanceBtn').disabled = false;
+    currentImages.enhanced = event.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('enhanceBtn').addEventListener('click', async () => {
+  if (!currentImages.enhanced) {
+    alert('Lütfen görsel seçin');
+    return;
+  }
+
+  const type = document.getElementById('enhanceType').value;
+  const scale = document.getElementById('enhanceScale').value;
+  const status = document.getElementById('enhanceStatus');
+
+  status.textContent = '⏳ İyileştiriliyor...';
+  document.getElementById('enhanceBtn').disabled = true;
+
+  try {
+    // Canvas ile temel filtreleme
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+
+    img.onload = () => {
+      if (type === 'upscale') {
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      } else if (type === 'denoise') {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.filter = 'blur(1px)';
+        ctx.drawImage(img, 0, 0);
+      } else if (type === 'colorize') {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.filter = 'saturate(200%)';
+        ctx.drawImage(img, 0, 0);
+      }
+
+      const resultUrl = canvas.toDataURL('image/png', 1.0);
+      document.getElementById('enhanceResultImg').src = resultUrl;
+      document.getElementById('enhanceResult').style.display = 'block';
+      status.textContent = '✅ Tamamlandı!';
+
+      document.getElementById('enhanceDownload').onclick = () => {
+        const link = document.createElement('a');
+        link.href = resultUrl;
+        link.download = 'friday-enhanced.png';
+        link.click();
+      };
+    };
+
+    img.src = currentImages.enhanced;
+
+  } catch (err) {
+    status.textContent = `❌ Hata: ${err.message}`;
+  } finally {
+    document.getElementById('enhanceBtn').disabled = false;
+  }
+});
+
+// === GÖRSEL BİRLEŞTİRME ===
+document.getElementById('merge1Upload').addEventListener('click', () => {
+  document.getElementById('merge1Input').click();
+});
+document.getElementById('merge2Upload').addEventListener('click', () => {
+  document.getElementById('merge2Input').click();
+});
+
+document.getElementById('merge1Input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    document.getElementById('merge1Img').src = event.target.result;
+    document.getElementById('merge1Img').style.display = 'block';
+    currentImages.merge[0] = event.target.result;
+    updateMergeBtn();
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('merge2Input').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    document.getElementById('merge2Img').src = event.target.result;
+    document.getElementById('merge2Img').style.display = 'block';
+    currentImages.merge[1] = event.target.result;
+    updateMergeBtn();
+  };
+  reader.readAsDataURL(file);
+});
+
+function updateMergeBtn() {
+  document.getElementById('mergeBtn').disabled = !(currentImages.merge[0] && currentImages.merge[1]);
+}
+
+document.getElementById('mergeBtn').addEventListener('click', async () => {
+  if (!currentImages.merge[0] || !currentImages.merge[1]) {
+    alert('Lütfen her iki görseli seçin');
+    return;
+  }
+
+  const method = document.getElementById('mergeMethod').value;
+  const blend = document.getElementById('mergeBlend').value / 100;
+  const status = document.getElementById('mergeStatus');
+
+  status.textContent = '⏳ Birleştiriliyor...';
+  document.getElementById('mergeBtn').disabled = true;
+
+  try {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const img1 = new Image();
+    const img2 = new Image();
+    let completed = 0;
+
+    img1.onload = () => {
+      completed++;
+      if (completed === 2) performMerge();
+    };
+    img2.onload = () => {
+      completed++;
+      if (completed === 2) performMerge();
+    };
+
+    function performMerge() {
+      canvas.width = Math.max(img1.width, img2.width);
+      canvas.height = Math.max(img1.height, img2.height);
+
+      if (method === 'blend') {
+        ctx.globalAlpha = blend;
+        ctx.drawImage(img1, 0, 0);
+        ctx.globalAlpha = 1 - blend;
+        ctx.drawImage(img2, 0, 0);
+      } else if (method === 'mosaic') {
+        ctx.drawImage(img1, 0, 0);
+        ctx.drawImage(img2, img1.width, 0);
+        canvas.width = img1.width + img2.width;
+      } else if (method === 'collage') {
+        ctx.drawImage(img1, 0, 0, canvas.width / 2, canvas.height);
+        ctx.drawImage(img2, canvas.width / 2, 0, canvas.width / 2, canvas.height);
+      } else if (method === 'overlap') {
+        ctx.drawImage(img1, 0, 0);
+        ctx.globalAlpha = 0.7;
+        ctx.drawImage(img2, 20, 20);
+      }
+
+      ctx.globalAlpha = 1;
+      const resultUrl = canvas.toDataURL('image/png', 1.0);
+      document.getElementById('mergeResultImg').src = resultUrl;
+      document.getElementById('mergeResult').style.display = 'block';
+      status.textContent = '✅ Tamamlandı!';
+
+      document.getElementById('mergeDownload').onclick = () => {
+        const link = document.createElement('a');
+        link.href = resultUrl;
+        link.download = 'friday-merged.png';
+        link.click();
+      };
+    }
+
+    img1.src = currentImages.merge[0];
+    img2.src = currentImages.merge[1];
+
+  } catch (err) {
+    status.textContent = `❌ Hata: ${err.message}`;
+  } finally {
+    document.getElementById('mergeBtn').disabled = false;
+  }
+});
+
+// === GÖRSEL DÜZENLEME ===
+document.getElementById('editUpload').addEventListener('click', () => {
+  document.getElementById('editInput').click();
+});
+
+document.getElementById('editInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById('editCanvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      canvas.style.display = 'block';
+      document.getElementById('editStatus').textContent = '✅ Görsel hazır';
+      document.getElementById('editDownload').disabled = false;
+      currentImages.edit = canvas.toDataURL();
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+function applyEditFilters() {
+  if (!currentImages.edit) return;
+
+  const canvas = document.getElementById('editCanvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+
+  const brightness = parseInt(document.getElementById('editBrightness').value) || 0;
+  const contrast = parseInt(document.getElementById('editContrast').value) || 0;
+  const saturation = parseInt(document.getElementById('editSaturation').value) || 0;
+
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+
+    let filter = '';
+    filter += `brightness(${100 + brightness}%) `;
+    filter += `contrast(${100 + contrast}%) `;
+    filter += `saturate(${100 + saturation}%) `;
+
+    ctx.filter = filter;
+    ctx.drawImage(img, 0, 0);
+  };
+  img.src = currentImages.edit;
+}
+
+document.getElementById('editReset').addEventListener('click', () => {
+  document.getElementById('editBrightness').value = 0;
+  document.getElementById('editContrast').value = 0;
+  document.getElementById('editSaturation').value = 0;
+  document.getElementById('editTemperature').value = 0;
+  document.getElementById('editShadows').value = 0;
+  document.getElementById('editHighlights').value = 0;
+  applyEditFilters();
+});
+
+document.getElementById('editDownload').addEventListener('click', () => {
+  const canvas = document.getElementById('editCanvas');
+  const link = document.createElement('a');
+  link.href = canvas.toDataURL('image/png', 1.0);
+  link.download = 'friday-edited.png';
+  link.click();
+});
+
+// === TOPLU İŞLEME ===
+document.getElementById('batchUpload').addEventListener('click', () => {
+  document.getElementById('batchInput').click();
+});
+
+document.getElementById('batchInput').addEventListener('change', (e) => {
+  const files = e.target.files;
+  const preview = document.getElementById('batchPreview');
+  preview.innerHTML = '';
+
+  Array.from(files).forEach((file, idx) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const item = document.createElement('div');
+      item.className = 'preview-item';
+      item.innerHTML = `
+        <img src="${event.target.result}" alt="Batch ${idx}">
+        <button class="delete" onclick="document.getElementById('batchInput').value=''">Sil</button>
+      `;
+      preview.appendChild(item);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  document.getElementById('batchImgStatus').textContent = `✅ ${files.length} görsel yüklendi`;
+  document.getElementById('batchProcess').disabled = false;
+});
+
+document.getElementById('batchProcess').addEventListener('click', async () => {
+  const files = document.getElementById('batchInput').files;
+  if (files.length === 0) {
+    alert('Lütfen görselleri yükleyin');
+    return;
+  }
+
+  const operation = document.getElementById('batchOperation').value;
+  const format = document.getElementById('batchFormat').value;
+  const status = document.getElementById('batchStatus');
+  const progressContainer = document.getElementById('batchProgressContainer');
+  const progressBar = document.getElementById('batchProgress');
+  const progressText = document.getElementById('batchProgressText');
+
+  progressContainer.style.display = 'block';
+  status.textContent = '⏳ İşleniyor...';
+  document.getElementById('batchProcess').disabled = true;
+
+  try {
+    let completed = 0;
+
+    Array.from(files).forEach((file, idx) => {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+
+          if (operation === 'upscale') {
+            canvas.width = img.width * 2;
+            canvas.height = img.height * 2;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          } else if (operation === 'enhance') {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.filter = 'contrast(120%) saturate(110%)';
+            ctx.drawImage(img, 0, 0);
+          } else if (operation === 'denoise') {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.filter = 'blur(0.5px)';
+            ctx.drawImage(img, 0, 0);
+          }
+
+          const link = document.createElement('a');
+          link.href = canvas.toDataURL(`image/${format}`, 0.95);
+          link.download = `friday-batch-${idx}.${format}`;
+          link.click();
+
+          completed++;
+          progressBar.style.width = (completed / files.length * 100) + '%';
+          progressText.textContent = `${completed} / ${files.length}`;
+
+          if (completed === files.length) {
+            status.textContent = '✅ Tamamlandı!';
+            document.getElementById('batchProcess').disabled = false;
+          }
+        };
+        img.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+  } catch (err) {
+    status.textContent = `❌ Hata: ${err.message}`;
+    document.getElementById('batchProcess').disabled = false;
+  }
+});
+
+</script>
+</body>
+</html>
