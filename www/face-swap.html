@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Friday - Yüz Aktarma</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#101828;--mut:#667085;--acc:#e5484d;--acc2:#ff8a3d;--line:#e4e7ec;box-sizing:border-box}
+@media (prefers-color-scheme:dark){:root{--bg:#0b1020;--card:#151b30;--ink:#eef1f8;--mut:#98a2b3;--line:#262e48}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;font:16px/1.5 system-ui,sans-serif}
+body{background:var(--bg);color:var(--ink);display:flex;flex-direction:column;padding:16px}
+header{margin-bottom:20px}
+h1{margin:0;font-size:24px;color:var(--ink)}
+.subtitle{font-size:12px;color:var(--mut)}
+.container{display:flex;gap:16px;flex:1;flex-wrap:wrap}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;flex:1;min-width:280px;display:flex;flex-direction:column}
+.panel h2{margin:0 0 12px 0;font-size:14px;color:var(--mut)}
+.upload-area{border:2px dashed var(--line);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:all 0.3s}
+.upload-area:hover{border-color:var(--acc);background:rgba(229,72,77,0.05)}
+.upload-area input{display:none}
+canvas,img{max-width:100%;border-radius:8px;margin-bottom:12px;background:#f0f0f0}
+button{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:14px;cursor:pointer;margin-top:8px}
+button:disabled{opacity:0.5;cursor:not-allowed}
+.status{font-size:12px;color:var(--mut);padding:8px;background:rgba(0,0,0,0.02);border-radius:6px;margin-top:8px}
+.loading{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result-img{margin-top:12px;border-radius:8px;max-width:100%}
+</style>
+</head>
+<body>
+<header>
+  <h1>Friday - Yüz Aktarma</h1>
+  <p class="subtitle">Fotoğraflardaki yüzleri analiz et ve aktarabilirsin</p>
+</header>
+
+<div class="container">
+  <div class="panel">
+    <h2>Kaynak Yüzü (Source Face)</h2>
+    <div class="upload-area" id="sourceUpload">
+      <p>📸 Fotoğraf yükle</p>
+      <input type="file" id="sourceInput" accept="image/*">
+    </div>
+    <img id="sourceImg" style="display:none">
+    <canvas id="sourceCanvas" style="display:none"></canvas>
+    <div class="status" id="sourceStatus">Bekleniyor...</div>
+  </div>
+
+  <div class="panel">
+    <h2>Hedef Yüzü (Target Face)</h2>
+    <div class="upload-area" id="targetUpload">
+      <p>📸 Fotoğraf yükle</p>
+      <input type="file" id="targetInput" accept="image/*">
+    </div>
+    <img id="targetImg" style="display:none">
+    <canvas id="targetCanvas" style="display:none"></canvas>
+    <div class="status" id="targetStatus">Bekleniyor...</div>
+  </div>
+
+  <div class="panel">
+    <h2>Sonuç</h2>
+    <button id="processBtn" disabled>🔄 İşle</button>
+    <canvas id="resultCanvas" style="display:none"></canvas>
+    <img id="resultImg" class="result-img" style="display:none">
+    <div class="status" id="resultStatus">Sonuç burada görünecek</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.0.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@0.0.5/dist/face-api.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sharp-cpu@latest"></script>
+
+<script>
+const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+
+let sourceFace = null;
+let targetFace = null;
+
+async function loadModels() {
+  console.log('Yüz tanıma modelleri yükleniyor...');
+  try {
+    await faceapi.nets.tinyFaceDetector.load(MODEL_URL);
+    await faceapi.nets.faceLandmark68Net.load(MODEL_URL);
+    await faceapi.nets.faceRecognitionNet.load(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.load(MODEL_URL);
+    console.log('✅ Modeller yüklendi');
+  } catch (err) {
+    console.error('Model yükleme hatası:', err);
+  }
+}
+
+async function detectFaces(imageElement) {
+  try {
+    const detections = await faceapi
+      .detectAllFaces(imageElement, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptors()
+      .withFaceExpressions();
+    return detections;
+  } catch (err) {
+    console.error('Yüz algılama hatası:', err);
+    return [];
+  }
+}
+
+function handleSourceUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    const img = document.getElementById('sourceImg');
+    img.src = event.target.result;
+    img.style.display = 'block';
+
+    document.getElementById('sourceStatus').textContent = 'Yüz algılanıyor...';
+
+    const detections = await detectFaces(img);
+    if (detections.length > 0) {
+      sourceFace = detections[0];
+      document.getElementById('sourceStatus').textContent = `✅ ${detections.length} yüz algılandı`;
+      updateProcessBtn();
+    } else {
+      document.getElementById('sourceStatus').textContent = '❌ Yüz bulunamadı';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleTargetUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    const img = document.getElementById('targetImg');
+    img.src = event.target.result;
+    img.style.display = 'block';
+
+    document.getElementById('targetStatus').textContent = 'Yüz algılanıyor...';
+
+    const detections = await detectFaces(img);
+    if (detections.length > 0) {
+      targetFace = detections[0];
+      document.getElementById('targetStatus').textContent = `✅ ${detections.length} yüz algılandı`;
+      updateProcessBtn();
+    } else {
+      document.getElementById('targetStatus').textContent = '❌ Yüz bulunamadı';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateProcessBtn() {
+  const btn = document.getElementById('processBtn');
+  btn.disabled = !(sourceFace && targetFace);
+}
+
+async function processFaceSwap() {
+  if (!sourceFace || !targetFace) {
+    alert('Lütfen her iki fotoğraftan yüz seçin');
+    return;
+  }
+
+  const resultStatus = document.getElementById('resultStatus');
+  resultStatus.textContent = '⏳ İşleniyor...';
+  const btn = document.getElementById('processBtn');
+  btn.disabled = true;
+
+  try {
+    // Temel yüz aktarma işlemi
+    const sourceBox = sourceFace.detection.box;
+    const targetBox = targetFace.detection.box;
+
+    const sourceCanvas = document.getElementById('sourceCanvas');
+    const targetCanvas = document.getElementById('targetCanvas');
+
+    const sourceImg = document.getElementById('sourceImg');
+    const targetImg = document.getElementById('targetImg');
+
+    sourceCanvas.width = sourceImg.width;
+    sourceCanvas.height = sourceImg.height;
+    targetCanvas.width = targetImg.width;
+    targetCanvas.height = targetImg.height;
+
+    const sCtx = sourceCanvas.getContext('2d');
+    const tCtx = targetCanvas.getContext('2d');
+
+    sCtx.drawImage(sourceImg, 0, 0);
+    tCtx.drawImage(targetImg, 0, 0);
+
+    // Basit yüz bölgesini kopyala
+    const faceWidth = Math.min(sourceBox.width, targetBox.width);
+    const faceHeight = Math.min(sourceBox.height, targetBox.height);
+
+    const imageData = sCtx.getImageData(
+      sourceBox.x,
+      sourceBox.y,
+      faceWidth,
+      faceHeight
+    );
+
+    // Kaynak yüzü hedef yüzün yerine yapıştır\n    tCtx.putImageData(
+      imageData,
+      targetBox.x,
+      targetBox.y\n    );
+
+    // Sonucu göster\n    const resultCanvas = document.getElementById('resultCanvas');
+    resultCanvas.width = targetImg.width;
+    resultCanvas.height = targetImg.height;
+    const resultCtx = resultCanvas.getContext('2d');
+    resultCtx.drawImage(targetCanvas, 0, 0);
+
+    // Yüksek çözünürlüklü PNG olarak kaydet
+    const resultImg = document.getElementById('resultImg');
+    resultImg.src = resultCanvas.toDataURL('image/png', 1.0);
+    resultImg.style.display = 'block';
+
+    resultStatus.textContent = '✅ Tamamlandı!';
+
+    // İndir butonu ekle
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = '⬇️ İndir';
+    downloadBtn.style.marginTop = '12px';
+    downloadBtn.onclick = () => {
+      const link = document.createElement('a');
+      link.href = resultImg.src;
+      link.download = 'friday-face-swap.png';
+      link.click();
+    };
+    resultStatus.parentElement.appendChild(downloadBtn);
+
+  } catch (err) {
+    console.error('Face swap hatası:', err);
+    resultStatus.textContent = `❌ Hata: ${err.message}`;
+  } finally {
+    btn.disabled = !sourceFace || !targetFace;
+  }
+}
+
+// Event listeners
+document.getElementById('sourceUpload').addEventListener('click', () => {
+  document.getElementById('sourceInput').click();
+});
+document.getElementById('sourceInput').addEventListener('change', handleSourceUpload);
+
+document.getElementById('targetUpload').addEventListener('click', () => {
+  document.getElementById('targetInput').click();
+});
+document.getElementById('targetInput').addEventListener('change', handleTargetUpload);
+
+document.getElementById('processBtn').addEventListener('click', processFaceSwap);
+
+// Modelleri yükle
+loadModels();
+</script>
+</body>
+</html>
