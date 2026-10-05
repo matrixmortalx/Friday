@@ -1,9 +1,11 @@
 package com.friday
 
 import android.os.Bundle
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -25,6 +27,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settingsButton: Button
     private lateinit var outputText: TextView
     private lateinit var scrollView: ScrollView
+    private lateinit var modelSpinner: Spinner
+    private lateinit var providerSpinner: Spinner
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -34,6 +38,21 @@ class MainActivity : AppCompatActivity() {
 
     private val scope = CoroutineScope(Dispatchers.IO)
     private var backendUrl = "http://10.0.2.2:8000"
+    private var selectedProvider = "anthropic"
+    private var selectedModel = "claude-3-5-sonnet-20241022"
+
+    private val modelMap = mapOf(
+        "anthropic" to listOf(
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-opus-20241022"
+        ),
+        "google" to listOf(
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash"
+        )
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,12 +64,52 @@ class MainActivity : AppCompatActivity() {
         settingsButton = findViewById(R.id.settingsButton)
         outputText = findViewById(R.id.outputText)
         scrollView = findViewById(R.id.scrollView)
+        modelSpinner = findViewById(R.id.modelSpinner)
+        providerSpinner = findViewById(R.id.providerSpinner)
 
-        outputText.text = "Merhaba! Ben Friday.\n\nBackend hazır olmalı.\nAyarlar menüsünden sunucu URL'sini güncelleyebilirsin."
+        outputText.text = "Merhaba! Ben Friday.\n\nProvider ve model seçebilirsiniz.\nBackend hazır olmalı."
+
+        setupSpinners()
 
         sendButton.setOnClickListener { sendPrompt() }
         imageButton.setOnClickListener { generateImage() }
         settingsButton.setOnClickListener { showSettings() }
+    }
+
+    private fun setupSpinners() {
+        val providers = listOf("anthropic", "google")
+        val providerAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, providers)
+        providerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        providerSpinner.adapter = providerAdapter
+
+        providerSpinner.setSelection(0)
+        providerSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: android.view.View?, pos: Int, id: Long) {
+                selectedProvider = providers[pos]
+                updateModelSpinner()
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+        }
+
+        updateModelSpinner()
+    }
+
+    private fun updateModelSpinner() {
+        val models = modelMap[selectedProvider] ?: modelMap["anthropic"]!!
+        val modelAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, models)
+        modelAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        modelSpinner.adapter = modelAdapter
+
+        val defaultIndex = models.indexOf(selectedModel).takeIf { it >= 0 } ?: 0
+        modelSpinner.setSelection(defaultIndex)
+        selectedModel = models[defaultIndex]
+
+        modelSpinner.onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: android.widget.AdapterView<*>, view: android.view.View?, pos: Int, id: Long) {
+                selectedModel = models[pos]
+            }
+            override fun onNothingSelected(parent: android.widget.AdapterView<*>) {}
+        }
     }
 
     private fun sendPrompt() {
@@ -64,6 +123,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 val body = JSONObject().apply {
                     put("message", text)
+                    put("model", selectedModel)
+                    put("provider", selectedProvider)
                 }
 
                 val request = Request.Builder()
@@ -98,6 +159,8 @@ class MainActivity : AppCompatActivity() {
             try {
                 val body = JSONObject().apply {
                     put("message", text)
+                    put("model", selectedModel)
+                    put("provider", selectedProvider)
                 }
 
                 val request = Request.Builder()
