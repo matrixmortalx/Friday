@@ -1,4 +1,4 @@
-# Friday – APK kurulumu
+i# Friday – APK kurulumu
 
 1. GitHub’da yeni bir private repo aç ve bu klasördeki TÜM dosyaları yükle (.github klasörü dahil).
 2. Repo > Actions > "Build APK" > Run workflow. İşlem yaklaşık 5 dakika sürer.
