@@ -11,6 +11,9 @@
 html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,sans-serif;display:flex;flex-direction:column}
 header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.toolbar{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.control{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut)}
+select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit;max-width:170px}
 .orb{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff8,transparent 40%),linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:0 0 18px #e5484d66}
 .orb.busy{animation:p 1s ease-in-out infinite}
 @keyframes p{50%{transform:scale(1.15)}}
@@ -22,20 +25,29 @@ h1 small{display:block;font-size:12px;font-weight:400;color:var(--mut)}
 .m.u{align-self:flex-end;background:var(--me);color:var(--meink);border-bottom-right-radius:4px}
 .m.a{align-self:flex-start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
 .m img{display:block;width:100%;max-width:320px;border-radius:10px;background:#fff}
-.dl{margin-top:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:6px 12px;font-size:14px}
 .hint{margin:auto;text-align:center;color:var(--mut);max-width:280px}
 form{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);align-items:flex-end}
 textarea{flex:1;resize:none;max-height:120px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:18px;padding:10px 14px;font:inherit;outline:none}
 .b{width:44px;height:44px;border-radius:50%;border:0;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:18px;flex:none}
 .b.g{background:var(--card);color:var(--ink);border:1px solid var(--line)}
-.b.on{background:var(--acc);color:#fff}
 </style>
 </head>
 <body>
 <header>
   <span class="orb" id="orb"></span>
   <h1>Friday<small>AI asistan</small></h1>
-  <button class="ib" id="settingsBtn">⚙</button>
+  <div class="toolbar">
+    <label class="control">Provider
+      <select id="providerSelect">
+        <option value="anthropic">Anthropic</option>
+        <option value="google">Google</option>
+      </select>
+    </label>
+    <label class="control">Model
+      <select id="modelSelect"></select>
+    </label>
+    <button class="ib" id="settingsBtn">⚙</button>
+  </div>
 </header>
 <div id="msgs" aria-live="polite"></div>
 <form id="composer">
@@ -47,7 +59,7 @@ textarea{flex:1;resize:none;max-height:120px;border:1px solid var(--line);backgr
 <script>
 const API = 'https://api.anthropic.com/v1/messages';
 const GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com';
-const DEFAULT_MODEL = 'gemma-4';
+const DEFAULT_MODEL = 'claude-3-5-sonnet-20241022';
 const MAX_TOKENS = 512;
 const IMAGE_API = 'https://image.pollinations.ai/prompt/';
 const STORAGE_KEY = 'friday_api_key';
@@ -61,79 +73,76 @@ const micBtn = document.getElementById('micBtn');
 const imgBtn = document.getElementById('imgBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const orb = document.getElementById('orb');
+const providerSelect = document.getElementById('providerSelect');
+const modelSelect = document.getElementById('modelSelect');
 
-let provider = localStorage.getItem(STORAGE_PROVIDER_KEY) || 'google';
+const MODEL_OPTIONS = {
+  anthropic: [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-opus-20241022'
+  ],
+  google: [
+    'gemini-2.5-flash',
+    'gemini-2.5-pro',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash'
+  ]
+};
+
+let provider = localStorage.getItem(STORAGE_PROVIDER_KEY) || 'anthropic';
 let apiKey = localStorage.getItem(STORAGE_KEY) || '';
 let MODEL = localStorage.getItem(STORAGE_MODEL_KEY) || DEFAULT_MODEL;
 
-function esc(s){return s.replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));}
-function addSystem(text){
-  const el = document.createElement('div');
-  el.className = 'm a';
-  el.innerHTML = esc(text);
-  msgs.appendChild(el);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-function addUser(text){
-  const el = document.createElement('div');
-  el.className = 'm u';
-  el.textContent = text;
-  msgs.appendChild(el);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-function addImage(src){
-  const el = document.createElement('div');
-  el.className = 'm a';
-  const img = document.createElement('img');
-  img.src = src;
-  img.alt = 'Üretilen görsel';
-  el.appendChild(img);
-  msgs.appendChild(el);
-  msgs.scrollTop = msgs.scrollHeight;
-}
-function showHint(){
-  if (!msgs.children.length) {
-    const h = document.createElement('div');
-    h.className = 'hint';
-    h.textContent = 'Merhaba! Ben Friday. Bir şey sorabilir veya görsel isteyebilirsin.';
-    msgs.appendChild(h);
+function renderModelOptions(){
+  const list = MODEL_OPTIONS[provider] || MODEL_OPTIONS.anthropic;
+  modelSelect.innerHTML = '';
+  list.forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === MODEL) opt.selected = true;
+    modelSelect.appendChild(opt);
+  });
+  if (!list.includes(MODEL)) {
+    MODEL = list[0];
+    localStorage.setItem(STORAGE_MODEL_KEY, MODEL);
   }
 }
-function setBusy(v){
-  orb.classList.toggle('busy', v);
-  sendBtn.disabled = v;
-  micBtn.disabled = v;
-  imgBtn.disabled = v;
-  sendBtn.title = v ? 'Bekleniyor' : 'Gönder';
-}
-function resizeTA(){
-  q.style.height = 'auto';
-  q.style.height = Math.min(q.scrollHeight, 120) + 'px';
-}
-q.addEventListener('input', resizeTA);
-q.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    form.requestSubmit();
-  }
+
+providerSelect.value = provider;
+providerSelect.addEventListener('change', () => {
+  provider = providerSelect.value;
+  localStorage.setItem(STORAGE_PROVIDER_KEY, provider);
+  renderModelOptions();
+  MODEL = modelSelect.value || MODEL_OPTIONS[provider][0];
+  localStorage.setItem(STORAGE_MODEL_KEY, MODEL);
+  addSystem(`Provider: ${provider} • Model: ${MODEL}`);
+});
+modelSelect.addEventListener('change', () => {
+  MODEL = modelSelect.value;
+  localStorage.setItem(STORAGE_MODEL_KEY, MODEL);
 });
 
+function esc(s){return s.replace(/[&<>\"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[m]));}
+function addSystem(text){const el=document.createElement('div');el.className='m a';el.innerHTML=esc(text);msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight}
+function addUser(text){const el=document.createElement('div');el.className='m u';el.textContent=text;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight}
+function addImage(src){const el=document.createElement('div');el.className='m a';const img=document.createElement('img');img.src=src;img.alt='Üretilen görsel';el.appendChild(img);msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight}
+function showHint(){if(!msgs.children.length){const h=document.createElement('div');h.className='hint';h.textContent='Merhaba! Ben Friday. Bir şey sorabilir veya görsel isteyebilirsin.';msgs.appendChild(h)}}
+function setBusy(v){orb.classList.toggle('busy',v);sendBtn.disabled=v;micBtn.disabled=v;imgBtn.disabled=v;sendBtn.title=v?'Bekleniyor':'Gönder'}
+function resizeTA(){q.style.height='auto';q.style.height=Math.min(q.scrollHeight,120)+'px'}
+q.addEventListener('input',resizeTA);
+q.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();form.requestSubmit()}});
+
 async function generateImageFromPrompt(prompt){
-  const cleaned = (prompt || '').trim();
-  if (!cleaned) return;
+  const cleaned=(prompt||'').trim();
+  if(!cleaned) return;
   setBusy(true);
   try {
     const url = IMAGE_API + encodeURIComponent(cleaned);
     addSystem('Görsel üretiliyor...');
     const img = new Image();
-    img.onload = () => {
-      addImage(img.src);
-      setBusy(false);
-    };
-    img.onerror = () => {
-      addSystem('Görsel oluşturulamadı. Lütfen farklı bir istek deneyin.');
-      setBusy(false);
-    };
+    img.onload = ()=>{addImage(img.src);setBusy(false)};
+    img.onerror = ()=>{addSystem('Görsel oluşturulamadı. Lütfen farklı bir istek deneyin.');setBusy(false)};
     img.src = url;
   } catch (err) {
     addSystem('Görsel üretme sırasında hata oluştu.');
@@ -142,20 +151,11 @@ async function generateImageFromPrompt(prompt){
 }
 
 async function askGoogle(prompt){
-  if (!apiKey) {
-    addSystem('API anahtarı yok. Sağ üstteki ⚙ düğmesine basıp anahtarı gir.');
-    return;
-  }
+  if (!apiKey) { addSystem('API anahtarı yok. Sağ üstteki ⚙ düğmesine basıp anahtarı gir.'); return; }
   setBusy(true);
   try {
     const url = `${GOOGLE_API_BASE}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent?key=${apiKey}`;
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }]
-      })
-    });
+    const res = await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error?.message || 'Google API hatası');
     const text = data?.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || 'Cevap alınamadı.';
@@ -167,35 +167,17 @@ async function askGoogle(prompt){
   }
 }
 
-async function askAnthropic(prompt, imagePrompt){
-  if (!apiKey) {
-    addSystem('API anahtarı yok. Sağ üstteki ⚙ düğmesine basıp anahtarı gir.');
-    return;
-  }
+async function askAnthropic(prompt,imagePrompt){
+  if (!apiKey) { addSystem('API anahtarı yok. Sağ üstteki ⚙ düğmesine basıp anahtarı gir.'); return; }
   setBusy(true);
   try {
-    const body = {
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      messages: [{ role: 'user', content: prompt }]
-    };
-    const res = await fetch(API, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+    const body = { model: MODEL, max_tokens: MAX_TOKENS, messages: [{ role: 'user', content: prompt }] };
+    const res = await fetch(API,{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','Accept':'application/json'},body:JSON.stringify(body)});
     const data = await res.json();
     if (!res.ok) throw new Error(data?.error?.message || 'API hatası');
     const text = data?.content?.[0]?.text || 'Cevap alınamadı.';
     addSystem(text);
-    if (imagePrompt && imagePrompt.trim()) {
-      await generateImageFromPrompt(imagePrompt.trim());
-    }
+    if (imagePrompt && imagePrompt.trim()) await generateImageFromPrompt(imagePrompt.trim());
   } catch (err) {
     addSystem('Bir hata oluştu: ' + (err.message || 'Bilinmeyen hata'));
   } finally {
@@ -203,19 +185,14 @@ async function askAnthropic(prompt, imagePrompt){
   }
 }
 
-async function askModel(prompt, imagePrompt){
-  if (provider === 'google') {
-    await askGoogle(prompt);
-  } else {
-    await askAnthropic(prompt, imagePrompt);
-  }
+async function askModel(prompt,imagePrompt){
+  if (provider === 'google') await askGoogle(prompt);
+  else await askAnthropic(prompt,imagePrompt);
 }
 
-function getUserText(){
-  return q.value.trim();
-}
+function getUserText(){return q.value.trim()}
 
-form.addEventListener('submit', e => {
+form.addEventListener('submit',e=>{
   e.preventDefault();
   const t = getUserText();
   if (!t) return;
@@ -226,7 +203,7 @@ form.addEventListener('submit', e => {
   askModel(t, needsImage ? t : '');
 });
 
-imgBtn.addEventListener('click', () => {
+imgBtn.addEventListener('click',()=>{
   const t = getUserText() || 'a modern futuristic robot portrait';
   addUser(t);
   q.value = '';
@@ -234,31 +211,32 @@ imgBtn.addEventListener('click', () => {
   generateImageFromPrompt(t);
 });
 
-settingsBtn.addEventListener('click', () => {
-  const next = prompt('Anthropic veya Google AI Studio API anahtarını girin:', apiKey || '');
+settingsBtn.addEventListener('click',()=>{
+  const next = prompt('API anahtarını girin:', apiKey || '');
   if (next !== null) {
     apiKey = next.trim();
     localStorage.setItem(STORAGE_KEY, apiKey);
     addSystem(apiKey ? 'API anahtarı kaydedildi.' : 'API anahtarı silindi.');
   }
-
-  const providerChoice = prompt('Provider (google/anthropic):', provider || 'google');
+  const providerChoice = prompt('Provider (anthropic/google):', provider || 'anthropic');
   if (providerChoice !== null) {
     const normalized = String(providerChoice).trim().toLowerCase();
-    provider = normalized === 'anthropic' ? 'anthropic' : 'google';
+    provider = normalized === 'google' ? 'google' : 'anthropic';
     localStorage.setItem(STORAGE_PROVIDER_KEY, provider);
+    providerSelect.value = provider;
+    renderModelOptions();
     addSystem(`Provider: ${provider}`);
   }
-
   const modelInput = prompt('Model adını girin:', MODEL || DEFAULT_MODEL);
   if (modelInput !== null) {
     MODEL = modelInput.trim() || DEFAULT_MODEL;
     localStorage.setItem(STORAGE_MODEL_KEY, MODEL);
+    modelSelect.value = MODEL;
     addSystem(`Model: ${MODEL}`);
   }
 });
 
-micBtn.addEventListener('click', () => {
+micBtn.addEventListener('click',()=>{
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
     addSystem('Bu tarayıcı sesli komut desteklemiyor.');
@@ -276,6 +254,7 @@ micBtn.addEventListener('click', () => {
   rec.start();
 });
 
+renderModelOptions();
 showHint();
 resizeTA();
 </script>
