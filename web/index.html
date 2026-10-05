@@ -1,60 +1,80 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Friday - AI Assistant</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Friday AI</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>🤖 Friday</h1>
-            <p>Sesli komutlu AI asistanı</p>
-        </header>
-
-        <main>
-            <div class="chat-section">
-                <div class="chat-box" id="chatBox">
-                    <div class="message system">
-                        <p>Merhaba! Ben Friday. Seni nasıl yardımcı olabilirim?</p>
-                    </div>
-                </div>
-
-                <div class="input-section">
-                    <div class="input-group">
-                        <input 
-                            type="text" 
-                            id="promptInput" 
-                            placeholder="Sorun yaz veya sesli komut kullan..."
-                            class="input-field"
-                        >
-                        <button id="sendBtn" class="btn btn-send">Gönder</button>
-                    </div>
-
-                    <div class="button-group">
-                        <button id="voiceBtn" class="btn btn-voice">🎤 Sesli Komut</button>
-                        <button id="imageBtn" class="btn btn-image">🖼️ Resim Üret</button>
-                        <button id="clearBtn" class="btn btn-clear">🗑️ Temizle</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="image-section" id="imageSection" style="display: none;">
-                <h3>Üretilen Resim</h3>
-                <img id="generatedImage" src="" alt="Üretilen resim" class="generated-image">
-                <button id="downloadBtn" class="btn btn-download">⬇️ İndir</button>
-            </div>
-        </main>
-
-        <footer>
-            <p>Friday AI Backend: <span id="status">Kontrol ediliyor...</span></p>
-            <p>API Durum: <span id="apiStatus" class="status-offline">Offline</span></p>
-        </footer>
+  <div class="phone-shell">
+    <div class="status-bar">
+      <span>9:41</span>
+      <div class="signal-icons">
+        <span>◔</span>
+        <span>📶</span>
+        <span>🔋</span>
+      </div>
     </div>
 
-    <div id="loadingSpinner" class="spinner" style="display: none;"></div>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">AI Assistant</p>
+        <h1>Friday</h1>
+      </div>
+      <button class="mini-btn" id="clearBtn">Temizle</button>
+    </header>
 
-    <script src="script.js"></script>
+    <main class="app-body">
+      <section class="hero-card">
+        <div class="hero-icon">🤖</div>
+        <div>
+          <small>Voice + Vision</small>
+          <strong>Akıllı yardımcı</strong>
+        </div>
+      </section>
+
+      <section class="chat-panel">
+        <div class="chat-box" id="chatBox">
+          <div class="message system">
+            <p>Merhaba! Ben Friday. Ne yapmamı istersin?</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="quick-actions">
+        <button class="chip">Yardım</button>
+        <button class="chip">Resim üret</button>
+        <button class="chip">Haber</button>
+      </section>
+
+      <section class="composer">
+        <input id="promptInput" type="text" placeholder="Mesajını yaz veya konuş..." />
+      </section>
+
+      <section class="action-row">
+        <button class="primary-btn" id="sendBtn">Gönder</button>
+        <button class="secondary-btn" id="voiceBtn">🎤</button>
+        <button class="secondary-btn" id="imageBtn">🖼️</button>
+      </section>
+
+      <section class="image-panel" id="imageSection" style="display:none;">
+        <div class="image-header">
+          <span>Üretilen Görsel</span>
+          <button class="mini-btn" id="downloadBtn">İndir</button>
+        </div>
+        <img id="generatedImage" alt="Generated image" />
+      </section>
+    </main>
+
+    <footer class="bottom-status">
+      <span id="status">Backend kontrol ediliyor...</span>
+      <span class="dot" id="apiStatus">Offline</span>
+    </footer>
+  </div>
+
+  <div id="loadingSpinner" class="spinner" style="display:none;"></div>
+
+  <script src="script.js"></script>
 </body>
 </html>
