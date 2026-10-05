@@ -19,7 +19,6 @@ app.add_middleware(
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "gemma3:4b")
 
-# Dil Modelleri
 AVAILABLE_MODELS = {
     "gemma3:4b": {"name": "Gemma 3 4B", "type": "ollama", "size": "4B"},
     "gemma3:12b": {"name": "Gemma 3 12B", "type": "ollama", "size": "12B"},
@@ -78,10 +77,10 @@ async def list_models():
 async def chat(req: ChatRequest):
     try:
         model = req.model or DEFAULT_MODEL
-        
+
         if model not in AVAILABLE_MODELS:
             raise HTTPException(status_code=400, detail=f"Model {model} not available")
-        
+
         payload = {
             "model": model,
             "prompt": req.message,
@@ -92,7 +91,7 @@ async def chat(req: ChatRequest):
                 "num_predict": 256
             }
         }
-        
+
         response = requests.post(
             f"{OLLAMA_URL}/api/generate",
             json=payload,
@@ -100,10 +99,10 @@ async def chat(req: ChatRequest):
         )
         response.raise_for_status()
         data = response.json()
-        
+
         answer = data.get("response", "Cevap alınamadı.")
         eval_count = data.get("eval_count", 0)
-        
+
         return ChatResponse(
             reply=answer,
             model=model,
@@ -131,42 +130,19 @@ async def generate_image(req: ImageRequest):
         prompt = req.prompt.strip()
         if not prompt:
             raise ValueError("Prompt boş olamaz")
-        
-        # Pollinations AI API kullanarak görsel üret
+
         prompt_encoded = prompt.replace(" ", "%20")
         image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}"
-        
+
         return ImageResponse(
             image_url=image_url,
             prompt=prompt
         )
-    except Exception as e:
+    except Exception:
         return ImageResponse(
             image_url="",
             prompt=req.prompt
         )
-
-@app.post("/api/models/download")
-async def download_model(model_name: str):
-    """
-    Ollama'dan model indir.
-    Örnek: POST /api/models/download?model_name=gemma3:7b
-    """
-    try:
-        if model_name not in AVAILABLE_MODELS:
-            raise HTTPException(status_code=400, detail=f"Model {model_name} not in available list")
-        
-        # Ollama pull komutu çalıştır
-        response = requests.post(
-            f"{OLLAMA_URL}/api/pull",
-            json={"name": model_name},
-            timeout=600
-        )
-        response.raise_for_status()
-        
-        return {"status": "success", "message": f"Model {model_name} downloaded"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/health")
 async def health_check():
@@ -188,54 +164,8 @@ async def health_check():
             "ollama_url": OLLAMA_URL
         }
 
-@app.post("/api/chat/stream")
-async def chat_stream(req: ChatRequest):
-    """
-    Streaming yanıt için endpoint (Web Socket ile uyumlu)
-    """
-    try:
-        model = req.model or DEFAULT_MODEL
-        
-        if model not in AVAILABLE_MODELS:
-            raise HTTPException(status_code=400, detail=f"Model {model} not available")
-        
-        payload = {
-            "model": model,
-            "prompt": req.message,
-            "stream": True,
-            "options": {
-                "temperature": req.temperature,
-                "top_p": req.top_p,
-                "num_predict": 512
-            }
-        }
-        
-        response = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json=payload,
-            stream=True,
-            timeout=180
-        )
-        response.raise_for_status()
-        
-        full_response = ""
-        for line in response.iter_lines():
-            if line:
-                data = json.loads(line)
-                chunk = data.get("response", "")
-                full_response += chunk
-        
-        return ChatResponse(
-            reply=full_response,
-            model=model,
-            tokens=len(full_response.split())
-        )
-    except Exception as e:
-        return ChatResponse(
-            reply=f"Streaming hatası: {str(e)}",
-            model=DEFAULT_MODEL
-        )
-
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
