@@ -40,6 +40,7 @@ textarea{flex:1;resize:none;max-height:120px;border:1px solid var(--line);backgr
 <div id="msgs" aria-live="polite"></div>
 <form id="composer">
   <textarea id="q" rows="1" placeholder="Mesaj yaz..."></textarea>
+  <button class="b g" id="imgBtn" type="button" aria-label="Görsel üret">🖼️</button>
   <button class="b g" id="micBtn" type="button" aria-label="Sesli komut">🎤</button>
   <button class="b" id="sendBtn" type="submit" aria-label="Gönder">➤</button>
 </form>
@@ -47,11 +48,13 @@ textarea{flex:1;resize:none;max-height:120px;border:1px solid var(--line);backgr
 const API = 'https://api.anthropic.com/v1/messages';
 const MODEL = 'claude-3-5-sonnet-20241022';
 const MAX_TOKENS = 512;
+const IMAGE_API = 'https://image.pollinations.ai/prompt/';
 const msgs = document.getElementById('msgs');
 const q = document.getElementById('q');
 const form = document.getElementById('composer');
 const sendBtn = document.getElementById('sendBtn');
 const micBtn = document.getElementById('micBtn');
+const imgBtn = document.getElementById('imgBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const orb = document.getElementById('orb');
 
@@ -76,7 +79,10 @@ function addUser(text){
 function addImage(src){
   const el = document.createElement('div');
   el.className = 'm a';
-  el.innerHTML = '<img src="' + src + '" alt="Üretilen görsel" />';
+  const img = document.createElement('img');
+  img.src = src;
+  img.alt = 'Üretilen görsel';
+  el.appendChild(img);
   msgs.appendChild(el);
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -92,6 +98,7 @@ function setBusy(v){
   orb.classList.toggle('busy', v);
   sendBtn.disabled = v;
   micBtn.disabled = v;
+  imgBtn.disabled = v;
   sendBtn.title = v ? 'Bekleniyor' : 'Gönder';
 }
 function resizeTA(){
@@ -105,6 +112,29 @@ q.addEventListener('keydown', e => {
     form.requestSubmit();
   }
 });
+
+async function generateImageFromPrompt(prompt){
+  const cleaned = (prompt || '').trim();
+  if (!cleaned) return;
+  setBusy(true);
+  try {
+    const url = IMAGE_API + encodeURIComponent(cleaned);
+    addSystem('Görsel üretiliyor...');
+    const img = new Image();
+    img.onload = () => {
+      addImage(img.src);
+      setBusy(false);
+    };
+    img.onerror = () => {
+      addSystem('Görsel oluşturulamadı. Lütfen farklı bir istek deneyin.');
+      setBusy(false);
+    };
+    img.src = url;
+  } catch (err) {
+    addSystem('Görsel üretme sırasında hata oluştu.');
+    setBusy(false);
+  }
+}
 
 async function askAnthropic(prompt, imagePrompt){
   if (!apiKey) {
@@ -135,42 +165,12 @@ async function askAnthropic(prompt, imagePrompt){
     const text = data?.content?.[0]?.text || 'Cevap alınamadı.';
     addSystem(text);
     if (imagePrompt && imagePrompt.trim()) {
-      await generateImage(imagePrompt.trim());
+      await generateImageFromPrompt(imagePrompt.trim());
     }
   } catch (err) {
     addSystem('Bir hata oluştu: ' + (err.message || 'Bilinmeyen hata'));
   } finally {
     setBusy(false);
-  }
-}
-
-async function generateImage(prompt){
-  if (!apiKey) {
-    addSystem('Görsel üretmek için API anahtarı gerekir.');
-    return;
-  }
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: 'Aşağıdaki görsel isteğini sade ve kısa şekilde görsel üretimi için hazır formatta yaz: ' + prompt }]
-      })
-    });
-    const data = await res.json();
-    const text = data?.content?.[0]?.text || '';
-    if (text) {
-      addSystem('Görsel üretim için istek hazırlandı: ' + text.slice(0, 200));
-    }
-  } catch (err) {
-    addSystem('Görsel üretme isteği gönderilemedi.');
   }
 }
 
@@ -186,6 +186,14 @@ form.addEventListener('submit', e => {
   resizeTA();
   const needsImage = /resim|görsel|foto|illustration|image|picture/i.test(t);
   askAnthropic(t, needsImage ? t : '');
+});
+
+imgBtn.addEventListener('click', () => {
+  const t = getUserText() || 'a modern futuristic robot portrait';
+  addUser(t);
+  q.value = '';
+  resizeTA();
+  generateImageFromPrompt(t);
 });
 
 settingsBtn.addEventListener('click', () => {
